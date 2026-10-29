@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TN Auto Fare GPS Meter 2026</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS & JS for Live Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        auto: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            900: '#78350f',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-active {
+            border-bottom: 3px solid #f59e0b;
+            color: #d97706;
+            font-weight: 600;
+        }
+        .dark .tab-active {
+            color: #fbbf24;
+        }
+        #map {
+            z-index: 10;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- Header -->
+    <header class="bg-amber-500 dark:bg-amber-600 text-slate-950 dark:text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-slate-950 text-amber-400 p-2.5 rounded-xl shadow-inner flex items-center justify-center">
+                    <i data-lucide="car-taxi-front" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight">TN Auto Live Meter</h1>
+                        <span id="meter-status-badge" class="bg-slate-950 text-amber-300 text-xs font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Ready</span>
+                    </div>
+                    <p class="text-xs text-amber-950 dark:text-amber-100 font-medium">GPS Metered Auto-Rickshaw Fare Calculator (Revised Rates with Auto Waiting)</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <div class="bg-amber-600 dark:bg-amber-700/80 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-amber-200"></i>
+                    <span>Govt. Order Verified</span>
+                </div>
+                <!-- Dark Mode Toggle -->
+                <button id="theme-toggle" class="p-2 rounded-xl bg-amber-600 dark:bg-amber-700 hover:bg-amber-700 dark:hover:bg-amber-800 transition text-white" aria-label="Toggle theme">
+                    <i data-lucide="moon" id="theme-icon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-8 overflow-x-auto">
+            <button onclick="switchTab('meter')" id="nav-meter" class="tab-active py-4 px-2 text-sm font-medium flex items-center gap-2 whitespace-nowrap transition-colors">
+                <i data-lucide="gauge" class="w-4 h-4"></i> Live GPS Meter
+            </button>
+            <button onclick="switchTab('calculator')" id="nav-calculator" class="py-4 px-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition-colors">
+                <i data-lucide="calculator" class="w-4 h-4"></i> Manual Estimator
+            </button>
+            <button onclick="switchTab('tariff')" id="nav-tariff" class="py-4 px-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition-colors">
+                <i data-lucide="file-text" class="w-4 h-4"></i> Tariff Card
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="py-4 px-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition-colors">
+                <i data-lucide="history" class="w-4 h-4"></i> Trip History (<span id="history-count">0</span>)
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+        <!-- TAB 1: LIVE GPS METER -->
+        <div id="tab-content-meter" class="space-y-6">
+            <!-- Alert Banner -->
+            <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+                <i data-lucide="radio" class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse"></i>
+                <div class="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                    <span class="font-bold">Live GPS Auto Meter:</span> Click <strong class="underline">"Start Trip"</strong> to track your ride. When stopped or moving below 3 km/h in traffic, the meter automatically counts <strong class="underline">waiting time at ₹1/min</strong>.
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Meter Console & Controls -->
+                <div class="lg:col-span-5 space-y-6">
+                    <!-- Digital Meter Display Box -->
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-amber-500/40 relative overflow-hidden flex flex-col justify-between">
+                        <div class="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
+                            <i data-lucide="gauge" class="w-64 h-64 text-amber-400"></i>
+                        </div>
+
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-slate-500" id="live-indicator-dot"></span>
+                                <span class="text-xs uppercase tracking-widest text-amber-400 font-bold" id="live-state-label">Meter Standby</span>
+                            </div>
+                            <span class="text-xs text-slate-400 font-mono" id="live-gps-accuracy">GPS: Ready</span>
+                        </div>
+
+                        <!-- Main Fare Output -->
+                        <div class="my-2">
+                            <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Current Meter Fare</span>
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-5xl sm:text-6xl font-extrabold text-amber-400 tracking-tight" id="meter-fare-display">₹50</span>
+                                <span class="text-xs text-slate-400">(Rounded)</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1 font-mono flex justify-between">
+                                <span id="meter-fare-exact">Exact: ₹50.00</span>
+                                <span id="waiting-badge" class="text-amber-300 font-bold hidden">⏳ Waiting Active</span>
+                            </div>
+                        </div>
+
+                        <!-- Live Stats Grid -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-6 pt-6 border-t border-slate-800 text-center">
+                            <div class="bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/40">
+                                <span class="text-[10px] uppercase text-slate-400 block">Distance</span>
+                                <span class="text-base font-bold text-amber-400 font-mono" id="stat-dist">0.00</span>
+                                <span class="text-[9px] text-slate-400">km</span>
+                            </div>
+                            <div class="bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/40">
+                                <span class="text-[10px] uppercase text-slate-400 block">Moving</span>
+                                <span class="text-base font-bold text-emerald-400 font-mono" id="stat-moving-time">00:00</span>
+                                <span class="text-[9px] text-slate-400">m:s</span>
+                            </div>
+                            <div class="bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/40">
+                                <span class="text-[10px] uppercase text-slate-400 block">Waiting</span>
+                                <span class="text-base font-bold text-amber-300 font-mono" id="stat-waiting-time">00:00</span>
+                                <span class="text-[9px] text-slate-400">m:s</span>
+                            </div>
+                            <div class="bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/40">
+                                <span class="text-[10px] uppercase text-slate-400 block">Speed</span>
+                                <span class="text-base font-bold text-cyan-400 font-mono" id="stat-speed">0.0</span>
+                                <span class="text-[9px] text-slate-400">km/h</span>
+                            </div>
+                        </div>
+
+                        <!-- Trip Action Controls -->
+                        <div class="space-y-3 pt-2">
+                            <button id="btn-toggle-trip" onclick="toggleTrip()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-base cursor-pointer">
+                                <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Start Trip
+                            </button>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button id="btn-pause-trip" onclick="pauseTrip()" disabled class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <i data-lucide="pause" class="w-4 h-4"></i> Manual Pause
+                                </button>
+                                <button id="btn-stop-trip" onclick="stopTrip()" disabled class="py-2.5 bg-rose-600/80 hover:bg-rose-600 text-white font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <i data-lucide="square" class="w-4 h-4 fill-white"></i> End & Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Options Card -->
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <i data-lucide="settings-2" class="w-4 h-4 text-amber-500"></i> Trip Conditions
+                        </h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl cursor-pointer">
+                                <span class="text-xs font-medium">Ghat Road</span>
+                                <input type="checkbox" id="live-ghat-toggle" onchange="updateLiveFare()" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+                            </label>
+                            <label class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl cursor-pointer">
+                                <span class="text-xs font-medium">Night (10PM-5AM)</span>
+                                <input type="checkbox" id="live-night-toggle" onchange="updateLiveFare()" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Leaflet Live Map Tracker -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <i data-lucide="map-pinned" class="w-4 h-4 text-amber-500"></i> Live Route GPS Tracker
+                        </h3>
+                        <span class="text-xs text-slate-400 font-mono" id="gps-coords">Lat: --, Lng: --</span>
+                    </div>
+
+                    <!-- Map Container -->
+                    <div class="w-full h-96 sm:h-[450px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative shadow-inner">
+                        <div id="map" class="w-full h-full"></div>
+                    </div>
+
+                    <div class="text-xs text-slate-400 flex items-center justify-between">
+                        <span>📍 Tracks distance and auto-detects stops (< 3 km/h) for waiting charges.</span>
+                        <button onclick="centerMapOnUser()" class="text-amber-600 dark:text-amber-400 hover:underline font-medium flex items-center gap-1">
+                            <i data-lucide="locate-fixed" class="w-3.5 h-3.5"></i> Center Map
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MANUAL ESTIMATOR -->
+        <div id="tab-content-calculator" class="space-y-6" style="display: none;">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i data-lucide="sliders-horizontal" class="w-5 h-5 text-amber-500"></i> Manual Trip Estimator
+                    </h2>
+                    <button onclick="resetCalculator()" class="text-xs text-slate-500 hover:text-amber-600 flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label for="distance-input" class="text-sm font-semibold">Distance (km)</label>
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl">
+                            <input type="number" id="distance-input" min="0.5" max="50" step="0.5" value="4.5" 
+                                class="w-16 bg-transparent text-right font-bold text-amber-600 dark:text-amber-400 focus:outline-none"
+                                oninput="syncDistance('input')">
+                            <span class="text-xs text-slate-500 font-medium">km</span>
+                        </div>
+                    </div>
+                    <input type="range" id="distance-slider" min="0.5" max="30" step="0.5" value="4.5" 
+                        class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        oninput="syncDistance('slider')">
+                </div>
+
+                <div class="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label for="waiting-input" class="text-sm font-semibold">Waiting / Traffic Time (mins)</label>
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl">
+                            <input type="number" id="waiting-input" min="0" max="120" step="1" value="5" 
+                                class="w-16 bg-transparent text-right font-bold text-amber-600 dark:text-amber-400 focus:outline-none"
+                                oninput="syncWaiting('input')">
+                            <span class="text-xs text-slate-500 font-medium">mins</span>
+                        </div>
+                    </div>
+                    <input type="range" id="waiting-slider" min="0" max="60" step="1" value="5" 
+                        class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        oninput="syncWaiting('slider')">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <label class="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl cursor-pointer">
+                        <span class="text-sm font-semibold">Ghat Road Travel</span>
+                        <input type="checkbox" id="ghat-toggle" onchange="calculateFare()" class="w-5 h-5 accent-amber-500 rounded cursor-pointer">
+                    </label>
+                    <label class="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl cursor-pointer">
+                        <span class="text-sm font-semibold">Night Time (10 PM - 5 AM)</span>
+                        <input type="checkbox" id="night-toggle" onchange="calculateFare()" class="w-5 h-5 accent-amber-500 rounded cursor-pointer">
+                    </label>
+                </div>
+
+                <!-- Manual Result Box -->
+                <div class="bg-slate-900 text-white p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <span class="text-xs text-slate-400 block">Estimated Fare</span>
+                        <span class="text-3xl font-extrabold text-amber-400" id="res-total">₹110</span>
+                    </div>
+                    <div class="text-right text-xs text-slate-400 space-y-1">
+                        <div>Base (1.8 km): <span id="res-base" class="text-white font-semibold">₹50</span></div>
+                        <div>Distance Charge: <span id="res-dist-charge" class="text-white font-semibold">₹67.5</span></div>
+                        <div>Waiting Charge (₹1/min): <span id="res-wait-charge" class="text-white font-semibold">₹5</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: TARIFF REFERENCE -->
+        <div id="tab-content-tariff" class="space-y-6" style="display: none;">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-6">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-950/60 px-3 py-1 rounded-full">Government Order</span>
+                        <h2 class="text-xl sm:text-2xl font-bold mt-2">Official Tamil Nadu Auto Tariff Structure</h2>
+                    </div>
+                    <button onclick="window.print()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-xl flex items-center gap-2">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Print Card
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                        <h3 class="font-bold text-base">Minimum Fare</h3>
+                        <p class="text-xs text-slate-500">First 1.8 kilometers</p>
+                        <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">₹50</div>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                        <h3 class="font-bold text-base">Subsequent KM</h3>
+                        <p class="text-xs text-slate-500">Every kilometer after 1.8 km</p>
+                        <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">₹25 / km</div>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                        <h3 class="font-bold text-base">Waiting Charge</h3>
+                        <p class="text-xs text-slate-500">Per minute (< 3 km/h or paused)</p>
+                        <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">₹1 / min</div>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+                        <h3 class="font-bold text-base">Night Surcharge</h3>
+                        <p class="text-xs text-slate-500">10:00 PM to 5:00 AM</p>
+                        <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">1.5x</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: TRIP HISTORY LOG -->
+        <div id="tab-content-history" class="space-y-6" style="display: none;">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold">Trip History Log</h2>
+                        <p class="text-xs text-slate-500">Previously completed GPS meter rides saved on your device.</p>
+                    </div>
+                    <button onclick="clearHistory()" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold rounded-xl transition">
+                        Clear History
+                    </button>
+                </div>
+
+                <div class="space-y-3" id="history-list-container">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+            Tamil Nadu Auto-Rickshaw GPS Meter & Fare Calculator • 2026 Revision
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Dark Mode Logic
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        
+        function setTheme(isDark) {
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                themeIcon.setAttribute('data-lucide', 'sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeIcon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
+        }
+        setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
+        themeToggleBtn.addEventListener('click', () => setTheme(document.documentElement.classList.toggle('dark')));
+
+        // Tab Navigation
+        function switchTab(tabName) {
+            ['meter', 'calculator', 'tariff', 'history'].forEach(t => {
+                document.getElementById(`tab-content-${t}`).style.display = (t === tabName) ? 'block' : 'none';
+                const navBtn = document.getElementById(`nav-${t}`);
+                if (t === tabName) {
+                    navBtn.classList.add('tab-active');
+                    navBtn.classList.remove('text-slate-500', 'dark:text-slate-400');
+                } else {
+                    navBtn.classList.remove('tab-active');
+                    navBtn.classList.add('text-slate-500', 'dark:text-slate-400');
+                }
+            });
+            if (tabName === 'meter' && map) {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Leaflet Map Initialization
+        let map, userMarker, routePolyline;
+        let routeCoordinates = [];
+        let defaultCoords = [13.0827, 80.2707]; // Chennai default
+
+        function initMap() {
+            map = L.map('map').setView(defaultCoords, 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            userMarker = L.marker(defaultCoords).addTo(map).bindPopup("Auto Location").openPopup();
+            routePolyline = L.polyline([], { color: '#f59e0b', weight: 5 }).addTo(map);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    defaultCoords = [lat, lng];
+                    map.setView(defaultCoords, 15);
+                    userMarker.setLatLng(defaultCoords);
+                    document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+                }, err => console.log("GPS Init Error:", err), { enableHighAccuracy: true });
+            }
+        }
+        window.addEventListener('load', initMap);
+
+        function centerMapOnUser() {
+            if (routeCoordinates.length > 0) {
+                map.setView(routeCoordinates[routeCoordinates.length - 1], 16);
+            } else {
+                map.setView(defaultCoords, 15);
+            }
+        }
+
+        // Live GPS Meter State Variables
+        let tripState = 'IDLE'; // IDLE, RUNNING, PAUSED
+        let watchId = null;
+        let totalDistanceKm = 0;
+        let lastLat = null, lastLng = null;
+        let movingSeconds = 0;
+        let waitingSeconds = 0;
+        let timerInterval = null;
+        let currentSpeedKmh = 0;
+        let isWaitingMode = false;
+        let tripHistory = JSON.parse(localStorage.getItem('tn_auto_trips') || '[]');
+        updateHistoryCount();
+
+        function toggleTrip() {
+            if (tripState === 'IDLE' || tripState === 'PAUSED') {
+                startLiveTrip();
+            }
+        }
+
+        function startLiveTrip() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser");
+                return;
+            }
+
+            tripState = 'RUNNING';
+            document.getElementById('live-state-label').innerText = "Trip Active";
+            document.getElementById('live-indicator-dot').className = "w-3 h-3 rounded-full bg-emerald-500 animate-pulse";
+            document.getElementById('btn-toggle-trip').innerHTML = `<i data-lucide="activity" class="w-5 h-5 animate-spin"></i> Metering Active...`;
+            document.getElementById('btn-toggle-trip').disabled = true;
+            document.getElementById('btn-pause-trip').disabled = false;
+            document.getElementById('btn-stop-trip').disabled = false;
+            lucide.createIcons();
+
+            if (movingSeconds === 0 && waitingSeconds === 0 && totalDistanceKm === 0) {
+                totalDistanceKm = 0;
+                movingSeconds = 0;
+                waitingSeconds = 0;
+                routeCoordinates = [];
+            }
+
+            // Start master ticker timer (every 1 second)
+            if (!timerInterval) {
+                timerInterval = setInterval(() => {
+                    if (tripState === 'RUNNING') {
+                        // Check if speed is below threshold (< 3 km/h) -> increment waiting seconds
+                        if (currentSpeedKmh < 3.0) {
+                            waitingSeconds++;
+                            isWaitingMode = true;
+                            document.getElementById('waiting-badge').classList.remove('hidden');
+                        } else {
+                            movingSeconds++;
+                            isWaitingMode = false;
+                            document.getElementById('waiting-badge').classList.add('hidden');
+                        }
+
+                        // Format times
+                        let mMin = Math.floor(movingSeconds / 60).toString().padStart(2, '0');
+                        let mSec = (movingSeconds % 60).toString().padStart(2, '0');
+                        document.getElementById('stat-moving-time').innerText = `${mMin}:${mSec}`;
+
+                        let wMin = Math.floor(waitingSeconds / 60).toString().padStart(2, '0');
+                        let wSec = (waitingSeconds % 60).toString().padStart(2, '0');
+                        document.getElementById('stat-waiting-time').innerText = `${wMin}:${wSec}`;
+
+                        updateLiveFare();
+                    }
+                }, 1000);
+            }
+
+            // Watch Position
+            watchId = navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, {
+                enableHighAccuracy: true,
+                maximumAge: 1000,
+                timeout: 10000
+            });
+        }
+
+        function pauseTrip() {
+            if (tripState === 'RUNNING') {
+                tripState = 'PAUSED';
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                
+                document.getElementById('live-state-label').innerText = "Trip Paused / Waiting";
+                document.getElementById('live-indicator-dot').className = "w-3 h-3 rounded-full bg-amber-500";
+                document.getElementById('btn-toggle-trip').innerHTML = `<i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Resume Trip`;
+                document.getElementById('btn-toggle-trip').disabled = false;
+                document.getElementById('btn-pause-trip').innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> Resume`;
+                document.getElementById('waiting-badge').classList.add('hidden');
+                lucide.createIcons();
+            } else if (tripState === 'PAUSED') {
+                startLiveTrip();
+                document.getElementById('btn-pause-trip').innerHTML = `<i data-lucide="pause" class="w-4 h-4"></i> Manual Pause`;
+            }
+        }
+
+        function stopTrip() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (timerInterval) clearInterval(timerInterval);
+
+            const finalFare = calculateCurrentFareValue();
+            const tripRecord = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                distance: totalDistanceKm.toFixed(2),
+                movingTime: document.getElementById('stat-moving-time').innerText,
+                waitingTime: document.getElementById('stat-waiting-time').innerText,
+                fare: finalFare.rounded,
+                exact: finalFare.exact.toFixed(2)
+            };
+
+            tripHistory.unshift(tripRecord);
+            localStorage.setItem('tn_auto_trips', JSON.stringify(tripHistory));
+            updateHistoryCount();
+            renderHistory();
+
+            // Reset UI
+            tripState = 'IDLE';
+            watchId = null;
+            timerInterval = null;
+            lastLat = null;
+            lastLng = null;
+            totalDistanceKm = 0;
+            movingSeconds = 0;
+            waitingSeconds = 0;
+            currentSpeedKmh = 0;
+
+            document.getElementById('live-state-label').innerText = "Trip Completed & Saved";
+            document.getElementById('live-indicator-dot').className = "w-3 h-3 rounded-full bg-slate-500";
+            document.getElementById('btn-toggle-trip').innerHTML = `<i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Start New Trip`;
+            document.getElementById('btn-toggle-trip').disabled = false;
+            document.getElementById('btn-pause-trip').disabled = true;
+            document.getElementById('btn-stop-trip').disabled = true;
+            document.getElementById('waiting-badge').classList.add('hidden');
+            lucide.createIcons();
+            
+            switchTab('history');
+        }
+
+        function onGeoSuccess(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const speedMs = position.coords.speed !== null ? position.coords.speed : 0; 
+            currentSpeedKmh = speedMs * 3.6;
+
+            document.getElementById('stat-speed').innerText = currentSpeedKmh.toFixed(1);
+            document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+            document.getElementById('live-gps-accuracy').innerText = `GPS: ±${Math.round(position.coords.accuracy || 5)}m`;
+
+            const currentLatLng = [lat, lng];
+            routeCoordinates.push(currentLatLng);
+            userMarker.setLatLng(currentLatLng);
+            routePolyline.setLatLngs(routeCoordinates);
+            map.panTo(currentLatLng);
+
+            if (lastLat !== null && lastLng !== null) {
+                const distIncrement = getDistanceFromLatLonInKm(lastLat, lastLng, lat, lng);
+                // Filter out erratic GPS jumps (> 150 meters in single tick)
+                if (distIncrement < 0.15) {
+                    totalDistanceKm += distIncrement;
+                }
+            }
+            lastLat = lat;
+            lastLng = lng;
+
+            document.getElementById('stat-dist').innerText = totalDistanceKm.toFixed(2);
+            updateLiveFare();
+        }
+
+        function onGeoError(error) {
+            console.warn("Geolocation warning:", error.message);
+            document.getElementById('live-gps-accuracy').innerText = "GPS Signal Weak";
+        }
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the earth in km
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2); 
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            return R * c;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI/180);
+        }
+
+        function calculateCurrentFareValue() {
+            const isGhat = document.getElementById('live-ghat-toggle').checked;
+            const isNight = document.getElementById('live-night-toggle').checked;
+
+            let baseFare = isGhat ? 60 : 50;
+            let ratePerKm = isGhat ? 30 : 25;
+
+            let extraKm = Math.max(0, totalDistanceKm - 1.8);
+            let distanceCharge = extraKm * ratePerKm;
+            
+            // Waiting charge: ₹1 per minute (waitingSeconds / 60)
+            let waitingMinutes = waitingSeconds / 60;
+            let waitingCharge = waitingMinutes * 1.0;
+
+            let exact = baseFare + distanceCharge + waitingCharge;
+            if (isNight) exact *= 1.5;
+
+            let rounded = Math.round(exact / 5) * 5;
+            if (rounded < baseFare) rounded = baseFare;
+            if (exact < baseFare) exact = baseFare;
+
+            return { exact, rounded };
+        }
+
+        function updateLiveFare() {
+            const res = calculateCurrentFareValue();
+            document.getElementById('meter-fare-display').innerText = `₹${res.rounded}`;
+            document.getElementById('meter-fare-exact').innerText = `Exact: ₹${res.exact.toFixed(2)}`;
+        }
+
+        // History Management
+        function updateHistoryCount() {
+            document.getElementById('history-count').innerText = tripHistory.length;
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-list-container');
+            if (tripHistory.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No completed trips logged yet. Start a live trip on the GPS Meter tab!</p>`;
+                return;
+            }
+
+            container.innerHTML = tripHistory.map(t => `
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex justify-between items-center">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400">${t.date}</div>
+                        <div class="font-bold text-sm text-slate-800 dark:text-slate-200 mt-0.5">${t.distance} km • Moving: ${t.movingTime} • Waiting: ${t.waitingTime}</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-lg font-extrabold text-amber-600 dark:text-amber-400">₹${t.fare}</span>
+                        <div class="text-[10px] text-slate-400">Exact: ₹${t.exact}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        renderHistory();
+
+        function clearHistory() {
+            if (confirm("Are you sure you want to clear your trip history?")) {
+                tripHistory = [];
+                localStorage.removeItem('tn_auto_trips');
+                updateHistoryCount();
+                renderHistory();
+            }
+        }
+
+        // Manual Calculator Sync
+        function syncDistance(source) {
+            const input = document.getElementById('distance-input');
+            const slider = document.getElementById('distance-slider');
+            if (source === 'input') slider.value = input.value;
+            else input.value = slider.value;
+            calculateFare();
+        }
+        function syncWaiting(source) {
+            const input = document.getElementById('waiting-input');
+            const slider = document.getElementById('waiting-slider');
+            if (source === 'input') slider.value = input.value;
+            else input.value = slider.value;
+            calculateFare();
+        }
+        function resetCalculator() {
+            document.getElementById('distance-input').value = 4.5;
+            document.getElementById('distance-slider').value = 4.5;
+            document.getElementById('waiting-input').value = 5;
+            document.getElementById('waiting-slider').value = 5;
+            document.getElementById('ghat-toggle').checked = false;
+            document.getElementById('night-toggle').checked = false;
+            calculateFare();
+        }
+        function calculateFare() {
+            const dist = parseFloat(document.getElementById('distance-input').value) || 0;
+            const waitingMins = parseFloat(document.getElementById('waiting-input').value) || 0;
+            const isGhat = document.getElementById('ghat-toggle').checked;
+            const isNight = document.getElementById('night-toggle').checked;
+
+            let base = isGhat ? 60 : 50;
+            let rate = isGhat ? 30 : 25;
+            let extra = Math.max(0, dist - 1.8);
+            let distCharge = extra * rate;
+            let waitCharge = waitingMins * 1.0;
+            let total = base + distCharge + waitCharge;
+            if (isNight) total *= 1.5;
+
+            let rounded = Math.round(total / 5) * 5;
+            document.getElementById('res-base').innerText = `₹${base}`;
+            document.getElementById('res-dist-charge').innerText = `₹${distCharge.toFixed(1)}`;
+            document.getElementById('res-wait-charge').innerText = `₹${waitCharge.toFixed(1)}`;
+            document.getElementById('res-total').innerText = `₹${rounded}`;
+        }
+        calculateFare();
+    </script>
+</body>
+</html>
