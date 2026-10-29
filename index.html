@@ -415,6 +415,7 @@
         let map, userMarker, routePolyline;
         let routeCoordinates = [];
         let defaultCoords = [13.0827, 80.2707]; // Chennai default
+        let gpsInit = true;
 
         function initMap() {
             map = L.map('map').setView(defaultCoords, 14);
@@ -434,7 +435,7 @@
                     map.setView(defaultCoords, 15);
                     userMarker.setLatLng(defaultCoords);
                     document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-                }, err => console.log("GPS Init Error:", err), { enableHighAccuracy: true });
+                }, err => {console.log("GPS Init Error:", err); gpsInit=false;}, { enableHighAccuracy: true });
             }
         }
         window.addEventListener('load', initMap);
@@ -469,6 +470,10 @@
         function startLiveTrip() {
             if (!navigator.geolocation) {
                 alert("Geolocation is not supported by your browser");
+                return;
+            }
+
+            if (!gpsInit) {
                 return;
             }
 
