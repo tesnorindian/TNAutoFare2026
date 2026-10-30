@@ -511,7 +511,7 @@
             if (!gpsInit) {
                 return;
             }
-            await requestWakeLock();
+            requestWakeLock();
             tripState = 'RUNNING';
             document.getElementById('live-state-label').innerText = "Trip Active";
             document.getElementById('live-indicator-dot').className = "w-3 h-3 rounded-full bg-emerald-500 animate-pulse";
