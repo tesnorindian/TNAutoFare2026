@@ -59,6 +59,37 @@
             animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
+    <link href="https://fonts.cdnfonts.com/css/lcd" rel="stylesheet">
+    
+    <style>
+        /* The container mimicking the physical LCD screen frame */
+        .lcd-screen {
+            background-color: #5f7468; /* Classic retro calculator green/grey */
+            border: 6px solid #333;
+            border-radius: 8px;
+            padding: 20px 40px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6), 0 10px 20px rgba(0,0,0,0.5);
+            display: inline-block;
+            position: relative;
+        }
+
+        /* The actual digital text styling */
+        .lcd-text {
+            font-family: 'LCD', 'LCD2', 'Digitalism', monospace; /* Fallback to standard monospace */
+            font-size: 4rem;
+            color: #1c2721; /* Dark unlit segment color tint */
+            letter-spacing: 4px;
+            text-shadow: 0 0 2px rgba(28, 39, 33, 0.3);
+            font-weight: bold;
+        }
+
+        /* Optional background element to mimic unlit 88:88 segments */
+        .lcd-background-shadow {
+            position: absolute;
+            opacity: 0.08; /* Extremely faint background matrix look */
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -145,7 +176,11 @@
                         <div class="my-2">
                             <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Current Meter Fare</span>
                             <div class="flex items-baseline gap-2">
-                                <span class="text-5xl sm:text-6xl font-extrabold text-amber-400 tracking-tight" id="meter-fare-display">₹50</span>
+                               <div class="lcd-screen">
+                                  <div class="lcd-text lcd-background-shadow">88:88:88</div>
+                                  <span class="text-5xl sm:text-6xl font-extrabold text-black-400 tracking-tight lcd-text" id="meter-fare-display">₹589</span>
+                               </div>
+                               <!-- <span class="text-5xl sm:text-6xl font-extrabold text-amber-400 tracking-tight" id="meter-fare-display">₹50</span> -->
                                 <span class="text-xs text-slate-400">(Rounded)</span>
                             </div>
                             <div class="text-xs text-slate-400 mt-1 font-mono flex justify-between">
