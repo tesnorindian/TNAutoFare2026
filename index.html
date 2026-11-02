@@ -470,7 +470,7 @@
                     map.setView(defaultCoords, 15);
                     userMarker.setLatLng(defaultCoords);
                     document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-                }, err => {console.log("GPS Init Error:", err); gpsInit=false;}, { enableHighAccuracy: true });
+                }, err => {console.log("NSS Init Error:", err); gpsInit=false;}, { enableHighAccuracy: true });
             }
         }
         window.addEventListener('load', initMap);
@@ -658,7 +658,7 @@
 
         function onGeoError(error) {
             console.warn("Geolocation warning:", error.message);
-            document.getElementById('live-gps-accuracy').innerText = "GPS Signal Weak";
+            document.getElementById('live-gps-accuracy').innerText = "NSS Signal Weak";
         }
 
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -715,7 +715,7 @@
         function renderHistory() {
             const container = document.getElementById('history-list-container');
             if (tripHistory.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No completed trips logged yet. Start a live trip on the GPS Meter tab!</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No completed trips logged yet. Start a live trip on the NSS Meter tab!</p>`;
                 return;
             }
 
@@ -753,7 +753,7 @@ async function requestWakeLock() {
     // Check if the API is supported in the current browser
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
-      console.log('🔒 Screen Wake Lock is active. GPS tracking will continue.');
+      console.log('🔒 Screen Wake Lock is active. NSS tracking will continue.');
 
       // Listen for the lock being released (e.g., if user minimizes Chrome)
       wakeLock.addEventListener('release', () => {
