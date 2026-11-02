@@ -169,7 +169,7 @@
                                 <span class="w-3 h-3 rounded-full bg-slate-500" id="live-indicator-dot"></span>
                                 <span class="text-xs uppercase tracking-widest text-amber-400 font-bold" id="live-state-label">Meter Standby</span>
                             </div>
-                            <span class="text-xs text-slate-400 font-mono" id="live-gps-accuracy">NSS: Ready</span>
+                            <span class="text-xs text-slate-400 font-mono" id="live-gps-accuracy">PNT: Ready</span>
                         </div>
 
                         <!-- Main Fare Output -->
@@ -401,7 +401,7 @@
     <!-- Footer -->
     <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
-            Tamil Nadu Auto-Rickshaw NSS Meter & Fare Calculator • 2026 Revision
+            Tamil Nadu Auto-Rickshaw NSS Meter & Fare Calculator • 2026 Revision • Best PNT accuracy with NavIC
         </div>
     </footer>
 
@@ -634,7 +634,7 @@
 
             document.getElementById('stat-speed').innerText = currentSpeedKmh.toFixed(1);
             document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-            document.getElementById('live-gps-accuracy').innerText = `NSS: ±${Math.round(position.coords.accuracy || 5)}m`;
+            document.getElementById('live-gps-accuracy').innerText = `PNT: ±${Math.round(position.coords.accuracy || 5)}m`;
 
             const currentLatLng = [lat, lng];
             routeCoordinates.push(currentLatLng);
