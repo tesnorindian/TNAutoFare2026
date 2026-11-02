@@ -634,7 +634,7 @@
 
             document.getElementById('stat-speed').innerText = currentSpeedKmh.toFixed(1);
             document.getElementById('gps-coords').innerText = `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-            document.getElementById('live-gps-accuracy').innerText = `GPS: ±${Math.round(position.coords.accuracy || 5)}m`;
+            document.getElementById('live-gps-accuracy').innerText = `NSS: ±${Math.round(position.coords.accuracy || 5)}m`;
 
             const currentLatLng = [lat, lng];
             routeCoordinates.push(currentLatLng);
