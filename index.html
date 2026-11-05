@@ -137,7 +137,7 @@
                 <i data-lucide="file-text" class="w-4 h-4"></i> Tariff Card
             </button>
             <button onclick="switchTab('history')" id="nav-history" class="py-4 px-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition-colors">
-                <i data-lucide="history" class="w-4 h-4"></i> Trip History (<span id="history-count">0</span>)
+                <i data-lucide="history" class="w-4 h-4"></i> Ride History (<span id="history-count">0</span>)
             </button>
         </div>
     </nav>
@@ -151,7 +151,7 @@
             <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
                 <i data-lucide="radio" class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse"></i>
                 <div class="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
-                    <span class="font-bold">Live NSS Auto Meter:</span> Click <strong class="underline">"Start Trip"</strong> to track your ride. When stopped or moving below 3 km/h in traffic, the meter automatically counts <strong class="underline">waiting time at ₹1/min</strong>.
+                    <span class="font-bold">Live NSS Auto Meter:</span> Click <strong class="underline">"Start Ride"</strong> to track your ride. When stopped or moving below 3 km/h in traffic, the meter automatically counts <strong class="underline">waiting time at ₹1/min</strong>.
                     <span class="font-bold text-green-900 dark:text-green-200">Travel on an EV to save humanity</span>
                 </div>
             </div>
@@ -214,10 +214,10 @@
                             </div>
                         </div>
 
-                        <!-- Trip Action Controls -->
+                        <!-- Ride Action Controls -->
                         <div class="space-y-3 pt-2">
                             <button id="btn-toggle-trip" onclick="toggleTrip()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-base cursor-pointer">
-                                <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Start Trip
+                                <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Start Ride
                             </button>
                             <div class="grid grid-cols-2 gap-3">
                                 <button id="btn-pause-trip" onclick="pauseTrip()" disabled class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -277,7 +277,7 @@
             <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                     <h2 class="text-lg font-bold flex items-center gap-2">
-                        <i data-lucide="sliders-horizontal" class="w-5 h-5 text-amber-500"></i> Manual Trip Estimator
+                        <i data-lucide="sliders-horizontal" class="w-5 h-5 text-amber-500"></i> Manual Ride Estimator
                     </h2>
                     <button onclick="resetCalculator()" class="text-xs text-slate-500 hover:text-amber-600 flex items-center gap-1">
                         <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
@@ -378,12 +378,12 @@
             </div>
         </div>
 
-        <!-- TAB 4: TRIP HISTORY LOG -->
+        <!-- TAB 4: Ride HISTORY LOG -->
         <div id="tab-content-history" class="space-y-6" style="display: none;">
             <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
                 <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
                     <div>
-                        <h2 class="text-xl font-bold">Trip History Log</h2>
+                        <h2 class="text-xl font-bold">Ride History Log</h2>
                         <p class="text-xs text-slate-500">Previously completed NSS meter rides saved on your device.</p>
                     </div>
                     <button onclick="clearHistory()" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold rounded-xl transition">
