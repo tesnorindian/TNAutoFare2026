@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Map & Routing SPA</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com" crossorigin="" />
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com" crossorigin="" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+
+    /* Navigation Bar */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 52px;
+      padding: 0 1.5rem;
+      background: #1e293b;
+      color: white;
+      flex-shrink: 0;
+    }
+    nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+      margin-left: 1.25rem;
+      font-weight: 500;
+    }
+    nav a.active, nav a:hover { color: #38bdf8; }
+
+    /* SPA Views */
+    .view { display: none; flex: 1; height: calc(100vh - 52px); width: 100%; }
+    .view.active { display: flex; }
+
+    /* Map Layout */
+    #sidebar {
+      width: 320px;
+      padding: 1rem;
+      background: #f8fafc;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    #map {
+      flex: 1;
+      height: 100%;
+      min-height: 400px;
+      background: #e2e8f0;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    button {
+      background: #0284c7;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #0369a1; }
+    button.secondary { background: #64748b; }
+    button.secondary:hover { background: #475569; }
+
+    /* Saved View */
+    #about-view {
+      padding: 2rem;
+      flex-direction: column;
+      max-width: 600px;
+      margin: 0 auto;
+      gap: 1rem;
+      width: 100%;
+    }
+    .route-card {
+      padding: 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <strong>RouteFinder SPA</strong>
+    <div>
+      <a href="#/map" id="nav-map" class="active">Map & Routing</a>
+      <a href="#/saved" id="nav-saved">Saved Routes</a>
+    </div>
+  </nav>
+
+  <!-- View 1: Map & Routing -->
+  <main id="map-view" class="view active">
+    <aside id="sidebar">
+      <h3>Plan a Route</h3>
+      <p style="font-size: 0.85rem; color: #475569;">
+        Enter places or click two points directly on the map.
+      </p>
+      <input type="text" id="start-input" placeholder="Start (e.g., Marina Beach, Chennai)" />
+      <input type="text" id="end-input" placeholder="Destination (e.g., Chennai Central)" />
+      <button id="route-btn">Get Directions</button>
+      <button id="save-btn" class="secondary">Save Current Route</button>
+      <button id="clear-btn" class="secondary">Clear Map</button>
+      <div id="status" style="font-size: 0.85rem; color: #0f172a;"></div>
+    </aside>
+    <div id="map"></div>
+  </main>
+
+  <!-- View 2: Saved Routes -->
+  <section id="saved-view" class="view">
+    <div id="about-view">
+      <h2>Saved Routes</h2>
+      <p style="color: #475569;">Routes saved during your session appear here.</p>
+      <div id="saved-list">No routes saved yet.</div>
+    </div>
+  </section>
+
+  <!-- Leaflet & Routing Scripts -->
+  <script src="https://unpkg.com" crossorigin=""></script>
+  <script src="https://unpkg.com" crossorigin=""></script>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const statusEl = document.getElementById('status');
+
+      // Check if Leaflet loaded properly
+      if (typeof L === 'undefined') {
+        statusEl.innerHTML = '<strong style="color:red;">Error:</strong> Leaflet failed to load. Check your internet connection or ad-blocker.';
+        return;
+      }
+
+      // 1. Initialize Interactive Map (Centered on Chennai)
+      const map = L.map('map').setView([13.0827, 80.2707], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Force Leaflet to recalculate map size after render
+      setTimeout(() => map.invalidateSize(), 200);
+
+      // 2. Initialize Routing Control
+      const routingControl = L.Routing.control({
+        waypoints: [],
+        routeWhileDragging: true,
+        showAlternatives: false
+      }).addTo(map);
+
+      const savedRoutes = [];
+
+      // 3. SPA Client-Side Router
+      const views = {
+        '/map': document.getElementById('map-view'),
+        '/saved': document.getElementById('saved-view')
+      };
+      const navLinks = {
+        '/map': document.getElementById('nav-map'),
+        '/saved': document.getElementById('nav-saved')
+      };
+
+      function handleRoute() {
+        const hash = window.location.hash.replace('#', '') || '/map';
+        Object.keys(views).forEach(route => {
+          views[route].classList.toggle('active', route === hash);
+          navLinks[route].classList.toggle('active', route === hash);
+        });
+        if (hash === '/map') {
+          setTimeout(() => map.invalidateSize(), 150);
+        }
+        if (hash === '/saved') renderSavedRoutes();
+      }
+
+      window.addEventListener('hashchange', handleRoute);
+
+      // 4. Geocode Address via Nominatim
+      async function geocode(query) {
+        const url = `https://openstreetmap.org{encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data || !data.length) throw new Error(`Location not found: ${query}`);
+        return L.latLng(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      }
+
+      // Handle "Get Directions" Button
+      document.getElementById('route-btn').addEventListener('click', async () => {
+        const startText = document.getElementById('start-input').value.trim();
+        const endText = document.getElementById('end-input').value.trim();
+        if (!startText || !endText) {
+          statusEl.textContent = 'Please enter both a start and destination.';
+          return;
+        }
+
+        try {
+          statusEl.textContent = 'Finding locations...';
+          const [startCoords, endCoords] = await Promise.all([geocode(startText), geocode(endText)]);
+          routingControl.setWaypoints([startCoords, endCoords]);
+          statusEl.textContent = 'Route calculated. Drag waypoints to adjust.';
+        } catch (err) {
+          statusEl.textContent = err.message;
+        }
+      });
+
+      // Click on map to set start/end points
+      let clickCount = 0;
+      map.on('click', (e) => {
+        if (clickCount === 0) {
+          routingControl.setWaypoints([e.latlng]);
+          statusEl.textContent = 'Start point set. Click destination on map.';
+          clickCount = 1;
+        } else {
+          const waypoints = routingControl.getWaypoints();
+          const start = waypoints[0].latLng;
+          routingControl.setWaypoints([start, e.latlng]);
+          statusEl.textContent = 'Route calculated!';
+          clickCount = 0;
+        }
+      });
+
+      // Save Route
+      document.getElementById('save-btn').addEventListener('click', () => {
+        const waypoints = routingControl.getWaypoints().filter(wp => wp.latLng);
+        if (waypoints.length < 2) {
+          statusEl.textContent = 'Calculate a route before saving.';
+          return;
+        }
+        const startName = document.getElementById('start-input').value || `${waypoints[0].latLng.lat.toFixed(3)}, ${waypoints[0].latLng.lng.toFixed(3)}`;
+        const endName = document.getElementById('end-input').value || `${waypoints[1].latLng.lat.toFixed(3)}, ${waypoints[1].latLng.lng.toFixed(3)}`;
+        savedRoutes.push({ startName, endName, waypoints: waypoints.map(w => w.latLng) });
+        statusEl.textContent = 'Route saved!';
+      });
+
+      // Clear Map
+      document.getElementById('clear-btn').addEventListener('click', () => {
+        routingControl.setWaypoints([]);
+        document.getElementById('start-input').value = '';
+        document.getElementById('end-input').value = '';
+        statusEl.textContent = '';
+        clickCount = 0;
+      });
+
+      // Render Saved Routes
+      function renderSavedRoutes() {
+        const listEl = document.getElementById('saved-list');
+        if (!savedRoutes.length) {
+          listEl.innerHTML = '<p>No routes saved yet.</p>';
+          return;
+        }
+        listEl.innerHTML = savedRoutes.map((r, idx) => `
+          <div class="route-card" style="margin-bottom: 0.75rem;">
+            <strong>Route #${idx + 1}</strong>: ${r.startName} &rarr; ${r.endName}
+            <button style="margin-top: 0.5rem;" onclick="loadRoute(${idx})">Load on Map</button>
+          </div>
+        `).join('');
+      }
+
+      window.loadRoute = (idx) => {
+        const route = savedRoutes[idx];
+        window.location.hash = '#/map';
+        routingControl.setWaypoints(route.waypoints);
+      };
+
+      handleRoute();
+    });
+  </script>
+</body>
+</html>
