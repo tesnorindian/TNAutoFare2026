@@ -1082,7 +1082,7 @@ function releaseWakeLock() {
                 //document.getElementById('res-duration').innerText = formatDuration(routeData.duration);
                 document.getElementById('route-distance').innerText = formatDistance(routeData.summary.length);
                 document.getElementById('route-time').innerText = formatDuration(routeData.summary.time);
-                document.getElementById('route-total').innerText = (routeData.summary.length - 1.8) * 25 + 50 ;
+                document.getElementById('route-total').innerText = Math.round(((Math.max(0, routeData.summary.length - 1.8)) * 25 + 50) / 5) * 5;
 
 
                 //document.getElementById('results').style.display = 'block';
