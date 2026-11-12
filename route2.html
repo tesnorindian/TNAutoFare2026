@@ -58,6 +58,37 @@
         .animate-pulse-slow {
             animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+
+ .suggestions-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #0f172a; /* Dark background (slate-900) */
+    color: #ffffff;
+    border: 1px solid #334155; /* Dark border (slate-700) */
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    display: none;
+}
+
+/* Optional: Add hover styling for suggestion items */
+.suggestions-list div, 
+.suggestions-list li {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background 0.15s ease;
+}
+
+.suggestions-list div:hover, 
+.suggestions-list li:hover {
+    background: #1e293b; /* Lighter dark shade on hover (slate-800) */
+}
     </style>
     <link href="https://fonts.cdnfonts.com/css/lcd" rel="stylesheet">
     
@@ -355,22 +386,22 @@
     <!-- Ride Action Controls -->
     <div class="space-y-4 pt-2">
         <!-- Start Point -->
-        <div class="flex flex-col gap-1.5 w-full">
+        <div class="flex flex-col gap-1.5 w-full relative">
             <label for="start-input" class="bg-white dark:bg-slate-900 text-sm-bold font-bold text-slate-500 dark:text-slate-400 uppercase">Start Point</label>
             <input type="text" id="start-input" placeholder="Type a starting address or place..." value="Tambaram" class="w-full px-4 py-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
             <div id="start-suggestions" class="suggestions-list"></div>
         </div>
 
         <!-- Destination Point -->
-        <div class="flex flex-col gap-1.5 w-full">
+        <div class="flex flex-col gap-1.5 w-full relative">
             <label for="end-input" class="bg-white dark:bg-slate-900 text-sm-bold font-bold text-slate-500 dark:text-slate-400 uppercase">Destination Point</label>
             <input type="text" id="end-input" placeholder="Type a destination address or place..." value="Guindy" class="w-full px-4 py-3 bg-slate-800/80 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500">
             <div id="end-suggestions" class="suggestions-list"></div>
         </div>
 
         <!-- Action Button -->
-        <button id="btn-toggle-trip" onclick="toggleTrip()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-base cursor-pointer">
-            <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Calculate Route & Distance
+        <button id="btn-toggle-trip" onclick="handleRouteCalculation()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold rounded-2xl shadow-lg transition flex items-center justify-center gap-2 text-base cursor-pointer">
+            <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> Calculate
         </button>
     </div>
 </div>
@@ -380,11 +411,11 @@
                 <div class="bg-slate-900 text-white p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div>
                         <span class="text-xs text-slate-400 block">Estimated Fare</span>
-                        <span class="text-3xl font-extrabold text-amber-400" id="res-total">₹110</span>
+                        <span class="text-3xl font-extrabold text-amber-400" id="route-total">₹110</span>
                     </div>
                     <div class="text-right text-xs text-slate-400 space-y-1">
-                        <div>Distance: <span id="res-base" class="text-white font-semibold">5 Km</span></div>
-                        <div>Estimated Time: <span id="res-dist-charge" class="text-white font-semibold">1 hour 10 minutes</span></div>
+                        <div>Distance: <span id="route-distance" class="text-white font-semibold">5 Km</span></div>
+                        <div>Estimated Time: <span id="route-time" class="text-white font-semibold">1 hour 10 minutes</span></div>
                     </div>
                 </div>
                     </div>
@@ -519,6 +550,9 @@
             if (tabName === 'meter' && map) {
                 setTimeout(() => map.invalidateSize(), 200);
             }
+            if (tabName === 'route' && map) {
+                setTimeout(() => routeMap.invalidateSize(), 200);
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -527,10 +561,18 @@
         let routeCoordinates = [];
         let defaultCoords = [13.0827, 80.2707]; // Chennai default
         let gpsInit = true;
+ 
+        // Selected coordinates storage
+        let startCoords = null;
+        let endCoords = null;
+
+        let routeLayer = null;
+        let markersGroup = null;
 
         function initMap() {
             map = L.map('map').setView(defaultCoords, 14);
             routeMap = L.map('map-route').setView(defaultCoords, 14);
+            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
@@ -539,6 +581,7 @@
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
             }).addTo(routeMap);
+            markersGroup = L.layerGroup().addTo(routeMap);
 
             userMarker = L.marker(defaultCoords).addTo(map).bindPopup("Auto Location").openPopup();
             routePolyline = L.polyline([], { color: '#f59e0b', weight: 5 }).addTo(map);
@@ -910,6 +953,225 @@ function releaseWakeLock() {
             document.getElementById('res-total').innerText = `₹${rounded}`;
         }
         calculateFare();
+
+
+//Route Estimator
+ // Setup Autocomplete Search Behavior
+        function setupAutocomplete(inputElementId, suggestionsElementId, setCoordsCallback) {
+            const inputEl = document.getElementById(inputElementId);
+            const suggestionsEl = document.getElementById(suggestionsElementId);
+            let debounceTimer;
+
+            inputEl.addEventListener('input', function() {
+                const query = this.value.trim();
+                clearTimeout(debounceTimer);
+
+                if (query.length < 3) {
+                    suggestionsEl.style.display = 'none';
+                    return;
+                }
+
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+                        const data = await res.json();
+
+                        suggestionsEl.innerHTML = '';
+                        if (data && data.length > 0) {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                div.textContent = item.display_name;
+                                div.addEventListener('click', () => {
+                                    inputEl.value = item.display_name;
+                                    setCoordsCallback({
+                                        lat: parseFloat(item.lat),
+                                        lon: parseFloat(item.lon),
+                                        name: item.display_name
+                                    });
+                                    suggestionsEl.style.display = 'none';
+                                });
+                                suggestionsEl.appendChild(div);
+                            });
+                            suggestionsEl.style.display = 'block';
+                        } else {
+                            suggestionsEl.style.display = 'none';
+                        }
+                    } catch (err) {
+                        console.error('Autocomplete error:', err);
+                    }
+                }, 300); // debounce delay
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!inputEl.contains(e.target) && !suggestionsEl.contains(e.target)) {
+                    suggestionsEl.style.display = 'none';
+                }
+            });
+        }
+
+        // Initialize autocompletes for both inputs
+        setupAutocomplete('start-input', 'start-suggestions', (coord) => { startCoords = coord; });
+        setupAutocomplete('end-input', 'end-suggestions', (coord) => { endCoords = coord; });
+       
+// Main Calculation Handler
+        async function handleRouteCalculation() {
+            const startQuery = document.getElementById('start-input').value.trim();
+            const endQuery = document.getElementById('end-input').value.trim();
+
+            if (!startQuery || !endQuery) {
+                alert("Please fill in both start and destination points.");
+                return;
+            }
+
+            // If coordinates aren't cached from dropdown selection, fetch them directly
+            if (!startCoords) {
+                startCoords = await getCoordinates(startQuery);
+            }
+            if (!endCoords) {
+                endCoords = await getCoordinates(endQuery);
+            }
+
+            if (!startCoords) {
+                alert(`Could not find start location: "${startQuery}"`);
+                return;
+            }
+            if (!endCoords) {
+                alert(`Could not find destination location: "${endQuery}"`);
+                return;
+            }
+
+            // Clear old layers/markers
+            markersGroup.clearLayers();
+            if (routeLayer) {
+                routeMap.removeLayer(routeLayer);
+            }
+
+            // Add Markers
+            const startMarker = L.marker([startCoords.lat, startCoords.lon]).bindPopup(`<b>Start:</b> ${startCoords.name}`);
+            const endMarker = L.marker([endCoords.lat, endCoords.lon]).bindPopup(`<b>Destination:</b> ${endCoords.name}`);
+            markersGroup.addLayer(startMarker);
+            markersGroup.addLayer(endMarker);
+
+            // Fetch and draw route geometry
+            const routeData = await fetchRoute(startCoords, endCoords);
+            if (routeData) {
+                /*routeLayer = L.geoJSON(routeData.geometry, {
+                    style: {
+                        color: '#2563eb',
+                        weight: 5,
+                        opacity: 0.8
+                    }
+                }).addTo(map);*/
+                const encodedShape = routeData.legs[0].shape;
+                const latLngs = decodePolyline6(encodedShape);
+
+                // Draw polyline securely onto Leaflet map
+                routeLayer = L.polyline(latLngs, {
+                    color: '#2563eb',
+                    weight: 5,
+                    opacity: 0.8
+                }).addTo(routeMap);
+
+                // Fit map bounds to route
+                routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+                // Display metrics
+                //document.getElementById('res-distance').innerText = formatDistance(routeData.distance);
+                //document.getElementById('res-duration').innerText = formatDuration(routeData.duration);
+                document.getElementById('route-distance').innerText = formatDistance(routeData.summary.length);
+                document.getElementById('route-time').innerText = formatDuration(routeData.summary.time);
+                document.getElementById('route-total').innerText = (routeData.summary.length - 1.8) * 25 + 50 ;
+
+
+                //document.getElementById('results').style.display = 'block';
+            }
+        }
+
+async function fetchRoute(startCoord, endCoord) {
+    const requestData = {
+        locations: [
+            { lat: startCoord.lat, lon: startCoord.lon },
+            { lat: endCoord.lat, lon: endCoord.lon }
+        ],
+        costing: "auto"
+    };
+
+    const url = `https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(requestData))}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data && data.trip) {
+            return data.trip;
+        }
+        throw new Error("Unable to find route via Valhalla.");
+    } catch (error) {
+        console.error("Valhalla Routing error:", error);
+        alert("Could not calculate route using Valhalla.");
+        return null;
+    }
+}
+
+function formatDistance(km) {
+            if (km < 1) {
+                return Math.round(km * 1000) + ' meters';
+            }
+            return km.toFixed(2) + ' km';
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.round(seconds / 60);
+            if (mins >= 60) {
+                const hrs = Math.floor(mins / 60);
+                const remMins = mins % 60;
+                return `${hrs} hr ${remMins} min`;
+            }
+            return `${mins} mins`;
+        }
+
+        function decodePolyline6(str) {
+            let index = 0, lat = 0, lon = 0, coordinates = [];
+            const factor = 1e6;
+            while (index < str.length) {
+                let shift = 0, result = 0, byte;
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+                let deltaLat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                lat += deltaLat;
+
+                shift = 0;
+                result = 0;
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+                let deltaLon = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                lon += deltaLon;
+
+                coordinates.push([lat / factor, lon / factor]);
+            }
+            return coordinates;
+        }
+
+ async function getCoordinates(query) {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+                return {
+                    lat: parseFloat(data[0].lat),
+                    lon: parseFloat(data[0].lon),
+                    name: data[0].display_name
+                };
+            }
+            return null;
+        }
     </script>
 </body>
 </html>
